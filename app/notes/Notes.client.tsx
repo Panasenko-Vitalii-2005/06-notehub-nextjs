@@ -1,14 +1,9 @@
 "use client";
 
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { deleteNote, fetchNotes } from "@/lib/api";
+import { fetchNotes } from "@/lib/api";
 import Modal from "@/components/Modal/Modal";
 import NoteForm from "@/components/NoteForm/NoteForm";
 import NoteList from "@/components/NoteList/NoteList";
@@ -20,7 +15,6 @@ const NOTES_PER_PAGE = 12;
 const SEARCH_DELAY = 300;
 
 export default function NotesClient() {
-  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -47,21 +41,6 @@ export default function NotesClient() {
     placeholderData: keepPreviousData,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteNote,
-    onSuccess: async (deletedNote) => {
-      queryClient.removeQueries({ queryKey: ["note", deletedNote.id], exact: true });
-      if (
-        page > 1 &&
-        data?.notes.length === 1 &&
-        data.notes[0].id === deletedNote.id
-      ) {
-        setPage(page - 1);
-      }
-      await queryClient.invalidateQueries({ queryKey: ["notes"] });
-    },
-  });
-
   return (
     <main className={css.app}>
       <header className={css.toolbar}>
@@ -84,14 +63,10 @@ export default function NotesClient() {
       {isLoading && <p role="status">Loading notes...</p>}
       {isError && <p role="alert">Failed to load notes. Please try again.</p>}
       {isFetching && !isLoading && <p role="status">Updating notes...</p>}
-      {deleteMutation.isError && (
-        <p role="alert">Could not delete note. Please try again.</p>
-      )}
       {data && data.notes.length > 0 && (
         <NoteList
           notes={data.notes}
-          onDelete={(id) => deleteMutation.mutate(id)}
-          deletingNoteId={deleteMutation.isPending ? deleteMutation.variables : undefined}
+          onPageEmpty={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
         />
       )}
       {isModalOpen && (
